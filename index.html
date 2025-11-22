@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Quiz Venezuela - Dark Gamer</title>
+<link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/197/197580.png">
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&display=swap');
+    body { margin: 0; font-family: 'Rajdhani', sans-serif; background: #0a0a0a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+    .container { width: 100%; max-width: 650px; background: #111; padding: 25px; border-radius: 15px; box-shadow: 0 0 25px #ff000055; }
+    h1 { text-align: center; color: #ff0033; text-shadow: 0 0 12px #ff0033; }
+    .question { font-size: 23px; margin-bottom: 20px; text-shadow: 0 0 8px #00ffff55; }
+    .options button { width: 100%; padding: 12px; margin: 8px 0; background: #1a1a1a; border: 2px solid #333; color: white; font-size: 18px; cursor: pointer; border-radius: 8px; transition: 0.3s; }
+    .options button:hover { background: #222; transform: scale(1.03); }
+    .correct { animation: explodeGreen 0.4s ease forwards; }
+    @keyframes explodeGreen { 0% { box-shadow: 0 0 0px #00ff00; } 100% { box-shadow: 0 0 25px #00ff00, 0 0 60px #00ff00; background: #003300; } }
+    .wrong { animation: flashRed 0.4s ease forwards; }
+    @keyframes flashRed { 0% { box-shadow: 0 0 0px #ff0000; } 100% { box-shadow: 0 0 25px #ff0000, 0 0 60px #ff0000; background: #330000; } }
+    #timer { font-size: 22px; text-align: center; margin-bottom: 15px; color: #00eaff; text-shadow: 0 0 12px #00eaff; }
+    #result { font-size: 26px; margin-top: 20px; text-align: center; color: #ff0033; text-shadow: 0 0 12px #ff0033; }
+    #restart { display: none; width: 100%; padding: 12px; background: #ff0033; border: none; color: white; font-size: 20px; margin-top: 20px; border-radius: 10px; cursor: pointer; text-shadow: 0 0 8px white; }
+    #rankingTitle { margin-top: 30px; text-align: center; color: #00eaff; font-size: 24px; text-shadow: 0 0 12px #00eaff; }
+    #rankingList { list-style: none; padding: 0; margin-top: 10px; font-size: 18px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="container">
+    <h1>QUIZ SOBRE A VENEZUELA 🇻🇪</h1>
+    <div id="timer">⏱ Tempo: 10</div>
+    <div id="quiz">
+        <div id="question" class="question"></div>
+        <div id="options" class="options"></div>
+    </div>
+    <div id="result"></div>
+    <button id="restart" onclick="restartQuiz()">Jogar Novamente</button>
+    <h2 id="rankingTitle">🏆 Ranking</h2>
+    <ul id="rankingList"></ul>
+</div>
+
+<script>
+let soundCorrect, soundWrong, soundClick;
+let soundsReady = false;
+
+function initSounds() {
+    if (soundsReady) return;
+    soundsReady = true;
+    soundCorrect = new Audio("https://cdn.freesound.org/previews/341/341695_6261193-lq.mp3");
+    soundWrong   = new Audio("https://cdn.freesound.org/previews/514/514314_220083-lq.mp3");
+    soundClick   = new Audio("https://cdn.freesound.org/previews/256/256113_3263906-lq.mp3");
+}
+function safePlay(sound) {
+    if (!soundsReady) return;
+    sound.currentTime = 0;
+    sound.play().catch(()=>{});
+}
+
+const questions = [
+    {question:"Quem iniciou a chamada Revolução Bolivariana?", options:["Juan Guaidó","Hugo Chávez","Nicolás Maduro","Rafael Correa"], answer:1},
+    {question:"Em que ano Hugo Chávez chegou à presidência da Venezuela?", options:["1989","1995","1998","2004"], answer:2},
+    {question:"Qual foi a principal fonte de receita usada para financiar programas sociais durante o governo Chávez?", options:["Mineração","Turismo","Petróleo","Agricultura"], answer:2},
+    {question:"Quem assumiu a presidência após a morte de Chávez?", options:["Leopoldo López","Nicolás Maduro","Diosdado Cabello","Juan Guaidó"], answer:1},
+    {question:"O governo Maduro é frequentemente acusado de:", options:["Abrir totalmente a economia","Autoritarismo e fraudes eleitorais","Reduzir impostos","Criar novas províncias"], answer:1},
+    {question:"A crise econômica da Venezuela é marcada principalmente por:", options:["Hiperinflação","Crescimento rápido do PIB","Superávit comercial","Aumento de exportações agrícolas"], answer:0},
+    {question:"Quem se declarou presidente interino da Venezuela em 2019?", options:["Nicolás Maduro","Henrique Capriles","Juan Guaidó","Evo Morales"], answer:2},
+    {question:"Quantos venezuelanos saíram do país devido à crise humanitária?", options:["500 mil","2 milhões","5 milhões","Mais de 7 milhões"], answer:3},
+    {question:"Quais países costumam apoiar o governo Maduro?", options:["EUA e Reino Unido","Rússia e Cuba","França e Canadá","Argentina e Paraguai"], answer:1},
+    {question:"Qual instituição tem papel central na manutenção do governo Maduro?", options:["Tribunal Eleitoral da ONU","Forças Armadas Venezuelanas","Cruz Vermelha","Unesco"], answer:1},
+];
+
+let current = 0;
+let score = 0;
+let timer = 10;
+let countdown;
+
+function getRanking() {
+    try { return JSON.parse(localStorage.getItem("rankingVenezuela")) || []; }
+    catch { return []; }
+}
+function saveRanking(arr) {
+    try { localStorage.setItem("rankingVenezuela", JSON.stringify(arr)); }
+    catch {}
+}
+
+function startTimer() {
+    clearInterval(countdown);
+    timer = 10;
+    document.getElementById("timer").textContent = "⏱ Tempo: " + timer;
+    countdown = setInterval(() => {
+        timer--;
+        document.getElementById("timer").textContent = "⏱ Tempo: " + timer;
+        if (timer <= 0) {
+            clearInterval(countdown);
+            checkAnswer(-1);
+        }
+    }, 1000);
+}
+
+function loadQuestion() {
+    startTimer();
+    const q = questions[current];
+    document.getElementById("question").textContent = q.question;
+    const optionsDiv = document.getElementById("options");
+    optionsDiv.innerHTML = "";
+    q.options.forEach((opt, i) => {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        btn.onclick = () => {
+            initSounds();
+            safePlay(soundClick);
+            checkAnswer(i);
+        };
+        optionsDiv.appendChild(btn);
+    });
+}
+
+function checkAnswer(selected) {
+    clearInterval(countdown);
+    const buttons = document.querySelectorAll(".options button");
+    buttons.forEach((btn, i) => {
+        if (i === questions[current].answer) btn.classList.add("correct");
+        if (i === selected && selected !== questions[current].answer) btn.classList.add("wrong");
+    });
+    if (selected === questions[current].answer) {
+        safePlay(soundCorrect);
+        score++;
+    } else {
+        safePlay(soundWrong);
+    }
+    setTimeout(() => {
+        current++;
+        current < questions.length ? loadQuestion() : finishQuiz();
+    }, 900);
+}
+
+function finishQuiz() {
+    document.getElementById("quiz").style.display = "none";
+    document.getElementById("result").textContent = `🎉 Você acertou ${score} de ${questions.length}!`;
+    document.getElementById("restart").style.display = "block";
+    let r = getRanking();
+    r.push(score);
+    r.sort((a,b)=>b-a);
+    saveRanking(r);
+    showRanking();
+}
+
+function restartQuiz() {
+    current = 0;
+    score = 0;
+    document.getElementById("quiz").style.display = "block";
+    document.getElementById("result").textContent = "";
+    document.getElementById("restart").style.display = "none";
+    loadQuestion();
+}
+
+function showRanking() {
+    let ranking = getRanking();
+    const list = document.getElementById("rankingList");
+    list.innerHTML = "";
+    ranking.forEach((s, i) => {
+        const li = document.createElement("li");
+        li.textContent = `#${i+1} — ${s} pontos`;
+        list.appendChild(li);
+    });
+}
+
+showRanking();
+loadQuestion();
+</script>
+</body>
+</html>
